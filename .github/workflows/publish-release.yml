@@ -1,58 +1,50 @@
 name: Publish Packages
-on:
-  push:
-    # workflow_dispatch:
-    # release:
-    #   types: [ created ]
-    # push:
-    #   tags:
-    #     - '*'
+
+# 仅在推送标签时触发此工作流
+on: push
 
 jobs:
   publish:
     runs-on: ubuntu-latest
     steps:
+      # 检出代码
+      - name: Checkout code
+        uses: actions/checkout@v4
 
-      - name: Checkout latest code
-        uses: actions/checkout@v2
-
+      # 设置 JDK 21
       - name: Set up JDK 21
-        uses: actions/setup-java@v2
+        uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
           java-version: 21
+          cache: 'gradle'
 
-      - name: Change wrapper permissions
-        run: chmod +x ./gradlew
-
+      # 发布包到 Maven 仓库
       - name: Publish package
-        uses: gradle/gradle-build-action@v2
+        uses: gradle/gradle-build-action@v3
         with:
           arguments: publish
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
 
-      - name: Build JAR
-        run: ./gradlew build
-
+      # 创建 GitHub Release
       - name: Create Release
         id: create_release
         uses: softprops/action-gh-release@v1
-        if: startsWith(github.ref, 'refs/tags/')
         with:
           tag_name: ${{ github.ref_name }}
           release_name: Release ${{ github.ref_name }}
           draft: false
           prerelease: false
 
+      # 上传 JAR 文件到 GitHub Release
       - name: Upload JAR to Release
         uses: actions/upload-release-asset@v1
-        if: startsWith(github.ref, 'refs/tags/')
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./build/libs/your-jar-file.jar
-          asset_name: your-jar-file.jar
+          asset_path: ./build/libs/*.jar
+          asset_name: ${{ github.ref_name }}.jar
           asset_content_type: application/java-archive
