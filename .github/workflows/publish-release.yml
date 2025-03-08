@@ -1,11 +1,12 @@
 name: Publish Packages
-on: push
-  # workflow_dispatch:
-  # release:
-  #   types: [ created ]
-  # push:
-  #   tags:
-  #     - '*'
+on:
+  push:
+    # workflow_dispatch:
+    # release:
+    #   types: [ created ]
+    # push:
+    #   tags:
+    #     - '*'
 
 jobs:
   publish:
@@ -31,3 +32,27 @@ jobs:
         env:
           MAVEN_USERNAME: ${{ secrets.MAVEN_USERNAME }}
           MAVEN_PASSWORD: ${{ secrets.MAVEN_PASSWORD }}
+
+      - name: Build JAR
+        run: ./gradlew build
+
+      - name: Create Release
+        id: create_release
+        uses: softprops/action-gh-release@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          tag_name: ${{ github.ref_name }}
+          release_name: Release ${{ github.ref_name }}
+          draft: false
+          prerelease: false
+
+      - name: Upload JAR to Release
+        uses: actions/upload-release-asset@v1
+        if: startsWith(github.ref, 'refs/tags/')
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./build/libs/your-jar-file.jar
+          asset_name: your-jar-file.jar
+          asset_content_type: application/java-archive
